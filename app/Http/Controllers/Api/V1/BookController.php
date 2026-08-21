@@ -47,7 +47,9 @@ class BookController extends Controller
 
     public function show(Book $book): BookDetailResource
     {
-        $book->load(['genres', 'reviews.user']);
+        $book->load(['genres', 'reviews.user'])
+            ->loadAvg('reviews', 'rating')
+            ->loadCount('reviews');
 
         return new BookDetailResource($book);
     }
@@ -56,45 +58,48 @@ class BookController extends Controller
     {
         $validated = $request->validated();
 
-        $book = DB::transaction(function () use ($validated) {
+        $book = DB::transaction(function () use ($validated, $request) {
             $book = Book::create([
-                'user_id' => $validated['user_id'],
+                'user_id' => $request->user()->id,
                 'title' => $validated['title'],
                 'author' => $validated['author'],
-                'isbn' => $validated['isbn'],
-                'published_date' => $validated['published_date'],
+                'isbn' => $validated['isbn'] ?? null,
+                'published_date' => $validated['published_date'] ?? null,
                 'description' => $validated['description'] ?? null,
                 'image_url' => $validated['image_url'] ?? null,
             ]);
 
-            $book->genres()->sync($validated['genres']);
+            if (! empty($validated['genres'])) {
+                $book->genres()->sync($validated['genres']);
+            }
 
             return $book;
         });
 
-        $book->load(['genres']);
-
-        return (new BookResource($book))
+        return (new BookResource($book->load('genres')))
             ->response()
             ->setStatusCode(201);
     }
 
     public function update(UpdateBookApiRequest $request, Book $book): BookResource
     {
+        $this->authorize('update', $book);
+
         $validated = $request->validated();
 
         DB::transaction(function () use ($book, $validated) {
             $book->update([
-                'user_id' => $validated['user_id'],
                 'title' => $validated['title'],
                 'author' => $validated['author'],
-                'isbn' => $validated['isbn'],
-                'published_date' => $validated['published_date'],
+                'isbn' => $validated['isbn'] ?? null,
+                'published_date' => $validated['published_date'] ?? null,
                 'description' => $validated['description'] ?? null,
                 'image_url' => $validated['image_url'] ?? null,
             ]);
 
-            $book->genres()->sync($validated['genres']);
+            if (array_key_exists('genres', $validated)) {
+                $book->genres()->sync($validated['genres'] ?? []);
+            }
         });
 
         $book->load(['genres'])->loadCount('reviews')->loadAvg('reviews', 'rating');
@@ -104,6 +109,8 @@ class BookController extends Controller
 
     public function destroy(Book $book): JsonResponse
     {
+        $this->authorize('delete', $book);
+
         $book->delete();
 
         return response()->json(null, 204);

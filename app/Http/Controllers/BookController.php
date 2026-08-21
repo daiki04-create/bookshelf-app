@@ -6,9 +6,9 @@ use App\Http\Requests\Book\StoreBookRequest;
 use App\Http\Requests\Book\UpdateBookRequest;
 use App\Models\Book;
 use App\Models\Genre;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class BookController extends Controller
 {
@@ -19,8 +19,8 @@ class BookController extends Controller
         if ($request->filled('keyword')) {
             $keyword = $request->input('keyword');
             $query->where(function ($q) use ($keyword) {
-                $q->where('title', 'like', '%' . $keyword . '%')
-                  ->orWhere('author', 'like', '%' . $keyword . '%');
+                $q->where('title', 'like', '%'.$keyword.'%')
+                    ->orWhere('author', 'like', '%'.$keyword.'%');
             });
         }
 
@@ -41,7 +41,7 @@ class BookController extends Controller
                 break;
             case 'rating':
                 $query->withAvg('reviews', 'rating')
-                      ->orderByRaw('reviews_avg_rating IS NULL, reviews_avg_rating DESC');
+                    ->orderByRaw('reviews_avg_rating IS NULL, reviews_avg_rating DESC');
                 break;
             case 'latest':
             default:
@@ -50,7 +50,7 @@ class BookController extends Controller
         }
 
         $books = $query->paginate(10)->appends($request->query());
-        
+
         $genres = Genre::all();
 
         return view('books.index', compact('books', 'genres'));

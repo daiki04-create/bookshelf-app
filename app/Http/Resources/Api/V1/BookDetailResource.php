@@ -14,19 +14,28 @@ class BookDetailResource extends JsonResource
             'title' => $this->title,
             'author' => $this->author,
             'isbn' => $this->isbn,
-            'published_date' => $this->published_date ? date('Y-m-d', strtotime($this->published_date)) : null,
+            'published_date' => $this->published_date?->format('Y-m-d') ?? $this->published_date,
             'description' => $this->description,
             'image_url' => $this->image_url,
-            'genres' => $this->genres->map(function ($genre) {
-                return [
+            'average_rating' => $this->reviews_avg_rating ? round((float) $this->reviews_avg_rating, 1) : null,
+            'reviews_count' => $this->reviews_count ?? $this->reviews->count(),
+            'genres' => $this->whenLoaded('genres', function () {
+                return $this->genres->map(fn ($genre) => [
                     'id' => $genre->id,
                     'name' => $genre->name,
-                ];
+                ]);
             }),
-            'average_rating' => round((float) ($this->reviews()->avg('rating') ?? 0), 1),
-            'reviews_count' => (int) $this->reviews()->count(),
-            'reviews' => ReviewResource::collection($this->whenLoaded('reviews')),
-            'created_at' => $this->created_at->toIso8601String(),
+            'reviews' => $this->whenLoaded('reviews', function () {
+                return $this->reviews->map(fn ($review) => [
+                    'id' => $review->id,
+                    'user_name' => $review->user?->name,
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at?->format('Y-m-d H:i:s'),
+                ]);
+            }),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }
